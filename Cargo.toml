@@ -10,7 +10,7 @@ exmex = { version = "0.12", features = ["value"] }
 evalexpr = "6"
 fasteval = "0.2"
 # TODO: `wasmer-compiler-llvm`
-wasmer = { version = "2.1", features = [] }
+wasmer = { version = "2.1", features = ["wasmer-compiler-llvm"] }
 ocl = { git = "https://github.com/michaelmattig/ocl" }
 rayon = "1.5"
 csv = "1.1"
