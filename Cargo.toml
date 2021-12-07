@@ -1,0 +1,17 @@
+[package]
+name = "math-expr"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+exmex = { version = "0.12", features = ["value"] }
+evalexpr = "6"
+fasteval = "0.2"
+# TODO: `wasmer-compiler-llvm`
+wasmer = { version = "2.1", features = [] }
+ocl = { git = "https://github.com/michaelmattig/ocl" }
+rayon = "1.5"
+csv = "1.1"
+serde = "1.0"
