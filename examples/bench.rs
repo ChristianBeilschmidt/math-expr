@@ -1,19 +1,51 @@
+use std::{fs::File, io::Write, process::Command};
+
 use evalexpr::{build_operator_tree, context_map};
+use libloading::{Library, Symbol};
 use ocl::ProQue;
 use rayon::prelude::*;
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 use wasmer::{imports, Instance, Module, Store, Value};
 
 #[derive(Serialize)]
-struct Result {
+struct OutputRow {
     n: usize,
+    #[serde(serialize_with = "serialize_f64")]
     opencl: f64,
+    #[serde(serialize_with = "serialize_f64")]
     evalexpr: f64,
+    #[serde(serialize_with = "serialize_f64")]
     wasmer: f64,
+    #[serde(serialize_with = "serialize_f64")]
+    dylib: f64,
+    #[serde(serialize_with = "serialize_f64")]
+    native: f64,
+}
+
+fn serialize_f64<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    const DECIMAL_SEPARATOR: char = ',';
+
+    let value_string = value.to_string();
+    let value_split: Vec<_> = value_string.split('.').collect();
+
+    match value_split.len() {
+        1 => serializer.serialize_str(value_split[0]),
+        2 => serializer.serialize_str(&format!(
+            "{}{}{}",
+            value_split[0], DECIMAL_SEPARATOR, value_split[1]
+        )),
+        _ => panic!("this is a weird number: {:?}", value_split),
+    }
 }
 
 fn main() {
-    let mut csv = csv::Writer::from_writer(std::io::stdout());
+    let mut csv = csv::WriterBuilder::new()
+        .delimiter(b';')
+        .has_headers(true)
+        .from_writer(std::io::stdout());
 
     for mult in [1, 16, 32, 64] {
         let n: usize = 1_000_000 * mult;
@@ -26,18 +58,24 @@ fn main() {
         let (opencl, opencl_result) = time_it(|| opencl(&numbers_a, &numbers_b));
         let (evalexpr, evalexpr_result) = time_it(|| evalexpr(&numbers_a, &numbers_b));
         let (wasmer, wasmer_result) = time_it(|| wasmer(&numbers_a, &numbers_b));
+        let (dylib, dylib_result) = time_it(|| dylib(&numbers_a, &numbers_b));
+        let (native, native_result) = time_it(|| native(&numbers_a, &numbers_b));
 
-        csv.serialize(Result {
+        csv.serialize(OutputRow {
             n,
             opencl,
             evalexpr,
             wasmer,
+            dylib,
+            native,
         })
         .unwrap();
 
         // validate results
         assert_eq!(evalexpr_result, opencl_result);
         assert_eq!(evalexpr_result, wasmer_result);
+        assert_eq!(evalexpr_result, dylib_result);
+        assert_eq!(evalexpr_result, native_result);
     }
 }
 
@@ -152,5 +190,49 @@ fn wasmer(numbers_a: &[f64], numbers_b: &[f64]) -> Vec<f64> {
 
             result[0].unwrap_f64()
         })
+        .collect()
+}
+
+fn dylib(numbers_a: &[f64], numbers_b: &[f64]) -> Vec<f64> {
+    type BiFunc = unsafe fn(f64, f64) -> f64;
+
+    let input_filename = "tmp/ndvi.rs";
+    let library_filename = "tmp/libndvi.so";
+
+    let mut file = File::create(input_filename).unwrap();
+    file.write_all(
+        br#"
+        #[no_mangle]
+        pub extern "C" fn ndvi(a: f64, b: f64) -> f64 {
+            (a - b) / (a + b)
+        }
+    "#,
+    )
+    .unwrap();
+
+    let mut compile_file = Command::new("rustc");
+    compile_file
+        .args(&["--crate-type", "cdylib", "--out-dir", "tmp", input_filename])
+        .status()
+        .expect("process failed to execute");
+
+    let lib = unsafe { Library::new(library_filename) }.unwrap();
+    let ndvi = unsafe {
+        let func: Symbol<BiFunc> = lib.get(b"ndvi").unwrap();
+        func
+    };
+
+    numbers_a
+        .par_iter()
+        .zip_eq(numbers_b.par_iter())
+        .map(|(&a, &b)| unsafe { ndvi(a, b) })
+        .collect()
+}
+
+fn native(numbers_a: &[f64], numbers_b: &[f64]) -> Vec<f64> {
+    numbers_a
+        .par_iter()
+        .zip_eq(numbers_b.par_iter())
+        .map(|(&a, &b)| (a - b) / (a + b))
         .collect()
 }

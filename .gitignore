@@ -1,2 +1,6 @@
 /target
 Cargo.lock
+
+# Folder for rust code and dylibs
+/tmp/*
+!.gitkeep

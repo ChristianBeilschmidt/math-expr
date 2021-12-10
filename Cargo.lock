@@ -344,9 +344,9 @@ dependencies = [
 
 [[package]]
 name = "darling"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "757c0ded2af11d8e739c4daea1ac623dd1624b06c844cf3f5a39f1bdbd99bb12"
+checksum = "d0d720b8683f8dd83c65155f0530560cba68cd2bf395f6513a483caee57ff7f4"
 dependencies = [
  "darling_core",
  "darling_macro",
@@ -354,9 +354,9 @@ dependencies = [
 
 [[package]]
 name = "darling_core"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c34d8efb62d0c2d7f60ece80f75e5c63c1588ba68032740494b0b9a996466e3"
+checksum = "7a340f241d2ceed1deb47ae36c4144b2707ec7dd0b649f894cb39bb595986324"
 dependencies = [
  "fnv",
  "ident_case",
@@ -368,9 +368,9 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ade7bff147130fe5e6d39f089c6bd49ec0250f35d70b2eebf72afdfc919f15cc"
+checksum = "72c41b3b7352feb3211a0d743dc5700a4e3b60f51bd2b368892d1e0f9a95f44b"
 dependencies = [
  "darling_core",
  "quote",
@@ -613,9 +613,9 @@ checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
 name = "libc"
-version = "0.2.109"
+version = "0.2.110"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f98a04dce437184842841303488f70d0188c5f51437d2a834dc097eafa909a01"
+checksum = "b58a4469763e4e3a906c4ed786e1c70512d16aa88f84dded826da42640fc6a1c"
 
 [[package]]
 name = "libloading"
@@ -696,6 +696,7 @@ dependencies = [
  "evalexpr",
  "exmex",
  "fasteval",
+ "libloading",
  "ocl",
  "rayon",
  "serde",
@@ -1179,9 +1180,9 @@ dependencies = [
 
 [[package]]
 name = "rkyv"
-version = "0.7.25"
+version = "0.7.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86c74fc6ea0317f1ba207eef55f5401b3180237625211866703183977b57dd45"
+checksum = "66bf572c17c77322f4d858c214def56b13a3c32b8d833cd6d28a92de8325ac5f"
 dependencies = [
  "bytecheck",
  "hashbrown",
@@ -1193,9 +1194,9 @@ dependencies = [
 
 [[package]]
 name = "rkyv_derive"
-version = "0.7.25"
+version = "0.7.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61f677bd46008257bfdf28d051a59a72b75c2714754be3f20bcb4cbd835d2723"
+checksum = "df3eca50f172b8e59e2080810fb41b65f047960c197149564d4bd0680af1888e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1294,9 +1295,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.130"
+version = "1.0.131"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f12d06de37cf59146fbdecab66aa99f9fe4f78722e3607577a5375d66bd0c913"
+checksum = "b4ad69dfbd3e45369132cc64e6748c2d65cdfb001a2b1c232d128b4ad60561c1"
 dependencies = [
  "serde_derive",
 ]
@@ -1312,9 +1313,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.130"
+version = "1.0.131"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7bc1a1ab1961464eae040d96713baa5a724a8152c1222492465b54322ec508b"
+checksum = "b710a83c4e0dff6a3d511946b95274ad9ca9e5d3ae497b63fda866ac955358d2"
 dependencies = [
  "proc-macro2",
  "quote",
