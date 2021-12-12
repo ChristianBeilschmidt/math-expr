@@ -1,6 +1,6 @@
 use wasmer::{imports, Function, Instance, Module, Store, Value};
 
-pub fn test_wasmer() {
+pub fn main() {
     // let module_wat = r#"
     // (module
     // (type $t0 (func (param i32) (result i32)))

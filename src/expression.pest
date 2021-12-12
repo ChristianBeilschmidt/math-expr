@@ -1,0 +1,39 @@
+WHITESPACE = _{ WHITE_SPACE }
+
+number = @{
+    ASCII_DIGIT+
+}
+
+identifier = @{
+    ASCII_ALPHA ~ ASCII_ALPHANUMERIC*
+}
+
+function = {
+    identifier ~ "(" ~ expression ~ ("," ~ expression)* ~ ")"
+}
+
+operator = _{
+    power | add | subtract | multiply | divide
+}
+    add      = { "+" }
+    subtract = { "-" }
+    multiply = { "*" }
+    divide   = { "/" }
+    power    = { "**" }
+
+
+expression = { term ~ (operator ~ term)* }
+term = _{ number | function | identifier | "(" ~ expression ~ ")" }
+
+// expression = {
+//     number ~ operator ~ number
+//     | expression ~ (operator ~ expression)*
+//     | number
+// }
+
+main = _{
+    SOI ~ expression ~ EOI
+}
+
+// TODO: precedence of operators
+// TODO: functions

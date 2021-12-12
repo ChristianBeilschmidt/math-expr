@@ -12,6 +12,11 @@ exmex = { version = "0.12", features = ["value"] }
 fasteval = "0.2"
 libloading = "0.7"
 ocl = { git = "https://github.com/michaelmattig/ocl" }
+pest = "2.1"
+pest_derive = "2.1"
+proc-macro2 = "1.0"
+quote = "1.0"
 rayon = "1.5"
+rustfmt-wrapper = "0.1"
 serde = "1.0"
 wasmer = { version = "2.1", features = ["wasmer-compiler-llvm"] }
