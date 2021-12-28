@@ -89,6 +89,39 @@ impl Ast {
 
                         Ok(AstNode::Function { name, args })
                     }
+                    Rule::branch => {
+                        // pairs are boolean -> expression
+                        // and last one is just an expression
+                        let mut pairs = pair.into_inner();
+
+                        let mut condition_branches: Vec<Branch> = vec![];
+
+                        while let Some(pair) = pairs.next() {
+                            if matches!(pair.as_rule(), Rule::boolean_expression) {
+                                let boolean = self.build_boolean_expression(pair.into_inner())?;
+
+                                let next_pair = pairs.next().ok_or("branch structure malformed")?;
+                                let expression = self.build_ast(next_pair.into_inner())?;
+
+                                condition_branches.push(Branch {
+                                    condition: boolean,
+                                    body: expression,
+                                });
+                            } else {
+                                let expression = self.build_ast(pair.into_inner())?;
+
+                                return Ok(AstNode::Branch {
+                                    condition_branches,
+                                    else_branch: Box::new(expression),
+                                });
+                            }
+                        }
+
+                        Err("unexpected branch structure".to_string())
+                    }
+                    Rule::boolean_expression => {
+                        Err(format!("boolean expression {}", pair.as_str()))
+                    }
                     _ => unreachable!("unexpected rule: {:?}", pair.as_rule()),
                 }
             },
@@ -111,12 +144,79 @@ impl Ast {
                     Rule::subtract => AstOperator::Subtract,
                     Rule::multiply => AstOperator::Multiply,
                     Rule::divide => AstOperator::Divide,
-                    _ => unreachable!("unexpected rule: {:?}", op.as_rule()),
+                    _ => unreachable!("unexpected operator: {:?}", op.as_rule()),
                 };
 
                 Ok(AstNode::Operation {
                     left: Box::new(left),
                     op: ast_operator,
+                    right: Box::new(right),
+                })
+            },
+        )
+    }
+
+    fn build_boolean_expression(
+        &self,
+        pairs: Pairs<'_, Rule>,
+    ) -> Result<BooleanExpression, String> {
+        // TODO: global var
+        let precedence = PrecClimber::new(vec![
+            Operator::new(Rule::and, Assoc::Left),
+            Operator::new(Rule::or, Assoc::Left),
+        ]);
+
+        precedence.climb(
+            pairs,
+            |pair| match pair.as_rule() {
+                Rule::boolean_true => Ok(BooleanExpression::Constant(true)),
+                Rule::boolean_false => Ok(BooleanExpression::Constant(false)),
+                Rule::boolean_comparison => {
+                    let mut pairs = pair.into_inner();
+
+                    let first_pair = pairs.next().ok_or("comparison needs second pair")?;
+                    let second_pair = pairs.next().ok_or("comparison needs second pair")?;
+                    let third_pair = pairs.next().ok_or("comparison needs third pair")?;
+
+                    let left_expression = self.build_ast(first_pair.into_inner())?;
+                    let comparison = match second_pair.as_rule() {
+                        Rule::equals => BooleanComparator::Equal,
+                        Rule::not_equals => BooleanComparator::NotEqual,
+                        Rule::smaller => BooleanComparator::LessThan,
+                        Rule::smaller_equals => BooleanComparator::LessThanOrEqual,
+                        Rule::larger => BooleanComparator::GreaterThan,
+                        Rule::larger_equals => BooleanComparator::GreaterThanOrEqual,
+                        _ => {
+                            return Err(format!(
+                                "unexpected comparator: {:?}",
+                                second_pair.as_rule()
+                            ))
+                        }
+                    };
+                    let right_expression = self.build_ast(third_pair.into_inner())?;
+
+                    Ok(BooleanExpression::Comparison {
+                        left: Box::new(left_expression),
+                        op: comparison,
+                        right: Box::new(right_expression),
+                    })
+                }
+                Rule::boolean_expression => self.build_boolean_expression(pair.into_inner()),
+                _ => Err(format!("unexpected boolean rule: {:?}", pair.as_rule())),
+            },
+            |left, op, right| {
+                let (left, right) = (left?, right?);
+
+                // dbg!("merge", &left, &op, &right);
+                let boolean_operator = match op.as_rule() {
+                    Rule::and => BooleanOperator::And,
+                    Rule::or => BooleanOperator::Or,
+                    _ => unreachable!("unexpected boolean operator: {:?}", op.as_rule()),
+                };
+
+                Ok(BooleanExpression::Operation {
+                    left: Box::new(left),
+                    op: boolean_operator,
                     right: Box::new(right),
                 })
             },
@@ -178,6 +278,10 @@ pub enum AstNode {
         name: Ident,
         args: Vec<AstNode>,
     },
+    Branch {
+        condition_branches: Vec<Branch>,
+        else_branch: Box<AstNode>,
+    },
 }
 
 impl ToTokens for AstNode {
@@ -191,6 +295,40 @@ impl ToTokens for AstNode {
             Self::Function { name, args } => {
                 let fn_name = format_ident!("import_{}", name);
                 quote! { #fn_name(#(#args),*) }
+            }
+            AstNode::Branch {
+                condition_branches,
+                else_branch: default_branch,
+            } => {
+                let mut new_tokens = TokenStream::new();
+                for (i, branch) in condition_branches.iter().enumerate() {
+                    let condition = &branch.condition;
+                    let body = &branch.body;
+
+                    new_tokens.extend(if i == 0 {
+                        // first
+                        quote! {
+                            if #condition {
+                                #body
+                            }
+                        }
+                    } else {
+                        // middle
+                        quote! {
+                            else if #condition {
+                                #body
+                            }
+                        }
+                    });
+                }
+
+                new_tokens.extend(quote! {
+                    else {
+                        #default_branch
+                    }
+                });
+
+                new_tokens
             }
         };
 
@@ -213,6 +351,81 @@ impl ToTokens for AstOperator {
             Self::Subtract => quote! { - },
             Self::Multiply => quote! { * },
             Self::Divide => quote! { / },
+        };
+
+        tokens.extend(new_tokens);
+    }
+}
+
+#[derive(Debug)]
+pub struct Branch {
+    condition: BooleanExpression,
+    body: AstNode,
+}
+
+#[derive(Debug)]
+pub enum BooleanExpression {
+    Constant(bool),
+    Comparison {
+        left: Box<AstNode>,
+        op: BooleanComparator,
+        right: Box<AstNode>,
+    },
+    Operation {
+        left: Box<BooleanExpression>,
+        op: BooleanOperator,
+        right: Box<BooleanExpression>,
+    },
+}
+
+impl ToTokens for BooleanExpression {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let new_tokens = match self {
+            Self::Constant(b) => quote! { #b },
+            Self::Comparison { left, op, right } => quote! { ( (#left) #op (#right) ) },
+            Self::Operation { left, op, right } => quote! { ( (#left) #op (#right) ) },
+        };
+
+        tokens.extend(new_tokens);
+    }
+}
+
+#[derive(Debug)]
+pub enum BooleanComparator {
+    Equal,
+    NotEqual,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
+}
+
+impl ToTokens for BooleanComparator {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let new_tokens = match self {
+            Self::Equal => quote! { == },
+            Self::NotEqual => quote! { != },
+            Self::LessThan => quote! { < },
+            Self::LessThanOrEqual => quote! { <= },
+            Self::GreaterThan => quote! { > },
+            Self::GreaterThanOrEqual => quote! { >= },
+        };
+
+        tokens.extend(new_tokens);
+    }
+}
+
+#[derive(Debug)]
+pub enum BooleanOperator {
+    And,
+    Or,
+}
+
+impl ToTokens for BooleanOperator {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let new_tokens = match self {
+            Self::And => quote! { && },
+            Self::Or => quote! { || },
         };
 
         tokens.extend(new_tokens);

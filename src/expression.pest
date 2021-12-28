@@ -1,5 +1,6 @@
 WHITESPACE = _{ WHITE_SPACE }
 
+// TODO: decimal
 number = @{
     ASCII_DIGIT+
 }
@@ -23,17 +24,36 @@ operator = _{
 
 
 expression = { term ~ (operator ~ term)* }
-term = _{ number | function | identifier | "(" ~ expression ~ ")" }
+term = _{ branch | number | function | identifier | "(" ~ expression ~ ")" }
 
-// expression = {
-//     number ~ operator ~ number
-//     | expression ~ (operator ~ expression)*
-//     | number
-// }
+boolean_comparator= _{
+    equals | not_equals | smaller_equals | smaller | larger_equals | larger
+}
+    equals         = { "==" }
+    not_equals     = { "!=" }
+    smaller        = { "<" }
+    smaller_equals = { "<=" }
+    larger         = { ">" }
+    larger_equals  = { ">=" }
+
+boolean_operator = _{ and | or }
+    and = { "&&" }
+    or  = { "||" }
+
+boolean_expression = { boolean_term ~ (boolean_operator ~ boolean_term)* }
+boolean_term = _{ boolean_true | boolean_false | boolean_comparison | "(" ~ boolean_expression ~ ")" }
+    boolean_true = { ^"true" }
+    boolean_false = { ^"false" }
+    boolean_comparison = { expression ~ boolean_comparator ~ expression }
+
+branch = {
+    "if" ~ boolean_expression ~ "{" ~ expression ~ "}"
+    ~ ("else" ~ "if" ~ boolean_expression ~ "{" ~ expression ~ "}")*
+    ~ "else" ~ "{" ~ expression ~ "}"
+}
 
 main = _{
     SOI ~ expression ~ EOI
 }
 
-// TODO: precedence of operators
-// TODO: functions
+
