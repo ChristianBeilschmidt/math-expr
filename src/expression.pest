@@ -1,9 +1,10 @@
 WHITESPACE = _{ WHITE_SPACE }
 
-// TODO: decimal
 number = @{
-    ASCII_DIGIT+
+    decimal | integer
 }
+    integer = @{ ASCII_DIGIT+ }
+    decimal = @{ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
 
 identifier = @{
     ASCII_ALPHA ~ ASCII_ALPHANUMERIC*
@@ -52,8 +53,16 @@ branch = {
     ~ "else" ~ "{" ~ expression ~ "}"
 }
 
+assignment = {
+    "let" ~ identifier ~ "=" ~ expression ~ ";"
+}
+
+assignments_and_expression = {
+    assignment* ~ expression
+}
+
 main = _{
-    SOI ~ expression ~ EOI
+    SOI ~ assignments_and_expression ~ EOI
 }
 
 

@@ -16,18 +16,20 @@ struct ExpressionParser;
 pub struct Ast {
     name: String,
     root: AstNode,
-    variables: Vec<Ident>,
+    parameters: Vec<Ident>,
+    variables: Rc<RefCell<Vec<Ident>>>,
     imports: Rc<RefCell<Vec<Ident>>>,
     // TODO: dtype Float or Int
 }
 
 // TODO: builder pattern
 impl Ast {
-    pub fn new(name: String, variables: &[String], input: &str) -> Self {
+    pub fn new(name: String, parameters: &[String], input: &str) -> Self {
         let mut this = Self {
             name,
             root: AstNode::Constant(0.), // TODO: this is bad
-            variables: variables.iter().map(|v| format_ident!("{}", v)).collect(),
+            parameters: parameters.iter().map(|v| format_ident!("{}", v)).collect(),
+            variables: Rc::new(RefCell::new(Vec::new())),
             imports: Rc::new(RefCell::new(vec![])),
         };
 
@@ -68,7 +70,9 @@ impl Ast {
                     Rule::number => Ok(AstNode::Constant(pair.as_str().parse().unwrap())),
                     Rule::identifier => {
                         let identifier = format_ident!("{}", pair.as_str());
-                        if self.variables.contains(&identifier) {
+                        if self.parameters.contains(&identifier)
+                            || self.variables.borrow().contains(&identifier)
+                        {
                             Ok(AstNode::Variable(identifier))
                         } else {
                             Err(format!("unknown variable {}", identifier))
@@ -121,6 +125,51 @@ impl Ast {
                     }
                     Rule::boolean_expression => {
                         Err(format!("boolean expression {}", pair.as_str()))
+                    }
+                    Rule::assignments_and_expression => {
+                        let mut assignments: Vec<Assignment> = vec![];
+
+                        for pair in pair.into_inner() {
+                            if matches!(pair.as_rule(), Rule::assignment) {
+                                let mut pairs = pair.into_inner();
+
+                                let first_pair =
+                                    pairs.next().ok_or("assignment needs first pair")?;
+                                let second_pair =
+                                    pairs.next().ok_or("assignment needs second pair")?;
+
+                                let identifier = format_ident!("{}", first_pair.as_str());
+
+                                if self.parameters.contains(&identifier) {
+                                    return Err(format!(
+                                        "cannot assign to parameter {}",
+                                        identifier
+                                    ));
+                                } else {
+                                    // having an assignment allows more variables
+                                    self.variables.borrow_mut().push(identifier.clone());
+                                }
+
+                                let expression = self.build_ast(second_pair.into_inner())?;
+
+                                assignments.push(Assignment {
+                                    identifier,
+                                    expression,
+                                });
+                            } else {
+                                let expression = self.build_ast(pair.into_inner())?;
+
+                                return Ok(AstNode::AssignmentsAndExpression {
+                                    assignments,
+                                    expression: Box::new(expression),
+                                });
+                            }
+                        }
+
+                        Err(
+                            "unexpected assignment structure: should end with expression"
+                                .to_string(),
+                        )
                     }
                     _ => unreachable!("unexpected rule: {:?}", pair.as_rule()),
                 }
@@ -253,12 +302,12 @@ impl ToTokens for Ast {
         }
 
         let fn_name = format_ident!("{}", self.name);
-        let vars = &self.variables;
+        let params = &self.parameters;
         let content = &self.root;
 
         tokens.extend(quote! {
             #[no_mangle]
-            pub extern "C" fn #fn_name (#(#vars : #dtype),*) -> #dtype {
+            pub extern "C" fn #fn_name (#(#params : #dtype),*) -> #dtype {
                 #content
             }
         });
@@ -281,6 +330,10 @@ pub enum AstNode {
     Branch {
         condition_branches: Vec<Branch>,
         else_branch: Box<AstNode>,
+    },
+    AssignmentsAndExpression {
+        assignments: Vec<Assignment>,
+        expression: Box<AstNode>,
     },
 }
 
@@ -329,6 +382,15 @@ impl ToTokens for AstNode {
                 });
 
                 new_tokens
+            }
+            Self::AssignmentsAndExpression {
+                assignments,
+                expression,
+            } => {
+                quote! {
+                    #(#assignments)*
+                    #expression
+                }
             }
         };
 
@@ -426,6 +488,26 @@ impl ToTokens for BooleanOperator {
         let new_tokens = match self {
             Self::And => quote! { && },
             Self::Or => quote! { || },
+        };
+
+        tokens.extend(new_tokens);
+    }
+}
+
+#[derive(Debug)]
+pub struct Assignment {
+    identifier: Ident,
+    expression: AstNode,
+}
+
+impl ToTokens for Assignment {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Self {
+            identifier,
+            expression,
+        } = self;
+        let new_tokens = quote! {
+            let #identifier = #expression;
         };
 
         tokens.extend(new_tokens);

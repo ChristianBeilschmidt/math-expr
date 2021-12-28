@@ -25,6 +25,12 @@ fn main() {
             }",
             vec![],
         ),
+        (
+            "let a = 1.2;
+            let b = 2;
+            a + b + 1",
+            vec![],
+        ),
     ] {
         let ast = Ast::new("expression".to_string(), &variables, pattern);
 
