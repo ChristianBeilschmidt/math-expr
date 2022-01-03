@@ -1,5 +1,6 @@
 WHITESPACE = _{ WHITE_SPACE }
 
+// TODO: negative numbers
 number = @{
     decimal | integer
 }
@@ -10,6 +11,7 @@ identifier = @{
     ASCII_ALPHA ~ ASCII_ALPHANUMERIC*
 }
 
+// TODO: functions without parameters
 function = {
     identifier ~ "(" ~ expression ~ ("," ~ expression)* ~ ")"
 }
@@ -37,6 +39,7 @@ boolean_comparator= _{
     larger         = { ">" }
     larger_equals  = { ">=" }
 
+// TODO: allow negation?
 boolean_operator = _{ and | or }
     and = { "&&" }
     or  = { "||" }

@@ -210,6 +210,7 @@ impl Ast {
         pairs: Pairs<'_, Rule>,
     ) -> Result<BooleanExpression, String> {
         // TODO: global var
+        // TODO: reverse??
         let precedence = PrecClimber::new(vec![
             Operator::new(Rule::and, Assoc::Left),
             Operator::new(Rule::or, Assoc::Left),
